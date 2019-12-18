@@ -1,0 +1,127 @@
+]#unshare --help 			//查看用法
+选项：
+ -m, --mount               unshare mounts namespace            文件系统
+ -u, --uts                 unshare UTS namespace (hostname etc)主机名
+ -i, --ipc                 unshare System V IPC namespace      信号项链
+ -n, --net                 unshare network namespace           网络服务
+ -p, --pid                 unshare pid namespace               pid
+ -U, --user                unshare user namespace		主机名	
+ -f, --fork                fork before launching <program>
+     --mount-proc[=<dir>]  mount proc filesystem first (implies --mount)
+ -r, --map-root-user       map current user to root (implies --user)
+     --propagation <slave|shared|private|unchanged>
+                           modify mount propagation in mount namespace
+ -s, --setgroups allow|deny  control the setgroups syscall in user namespaces
+
+ -h, --help     显示此帮助并退出
+ -V, --version  输出版本信息并退出
+]#man unshare
+/examples
+]# unshare --fork --pid --mount-proc readlink /proc/self
+]#pstree -p
+]#ps -ef
+
+
+==========================================================================
+1.相比于传统虚拟化技术,容器更加简洁高效
+2.传统虚拟机需要给每个vm安装操作系统
+3.容器使用的共享公共库和程序
+==========================================================================
+docker缺点
+1.容器的隔离性没有虚拟化强
+2.公用linux内核,安全性由先天缺陷
+3.SElinux难以驾驭
+4.监控容器和容器拍错是挑战
+
+__________________________________________________________________________
+什么是镜像
+1.在Docker中容器是基于镜像启动的
+2.镜像是启动容器的核心
+3.镜像采用分层设计
+4.使用快照的cow技术,确保底层数据不丢失
+___________________________________________________________________________
+]#docker help search 
+]#man docker-search   查看选项
+___________________________________________________________________________
+]#docker search busbox  (默认去官方网页查找)
+
+abc]#unshare -u /bin/bash		//命名空间此用户的操作,别的用户看不到
+abc]#hostname xxhh
+abc]#bash
+xxhh]#
+____________________________________________________________________________
+
+docker1]#docker images
+docker1]#docker save docker.io/busybox:latest -o busybox.tar  //拷贝镜像
+docker1]#rsync -av busybox.tar docker2:/root   //文件同步(传文件,同scp)
+docker2]#docker load -i busybox.tar		//恢复镜像
+
+
+
+真机:]#rsync -av  /linux-soft/04/docker   docker1:/root  docker2:/root   不能同时传,且需要在真机/etc/hosts做解析
+docker1]#for i in * ;do docker load -i ${i};done
+docker2]#for i in * ;do docker load -i ${i};done
+]#docker run -it dcoker.io/centos:latest  /bin/bash    // i 表示交互式  t 表示终端
+#]cat >local.repo<<EOF					//创建文件,碰到EE就终止
+]#pstree -p
+bash(1) ---pstree(41)			//进程号为1的,是上帝进程,无中生有(容器)
+
+ot@docker2 docker]# pstree -p			
+systemd(1)─┬─agetty(704)		//虚拟机有systemd(1) 容器没有
+
+yum provides ifconfig			//查询命令所需软件名
+for i  in * ;do docker load -i ${i};done	//批量导入镜像
+]#docker run -it docker.io/nginx:latest  //未写解释器 启动守护进程,非交互,可放后台启动&
+
+]#docker run -itd docker.io/nginx:latest  //选项-itd 开启守护进程,服务放后台
+
+docker history 	docker.io/nginx:latest   最高盖255层封装查看镜像历史
+____________________________________________________________________________
+
+redhat  |debian(ubantu)
+rpm	|dpkg			dpkg-l
+yum	|apt-get     __________两个系统仅此两个命令的区别
+============================================================================
+镜像常用命令
+]#docker images			//查看镜像列表
+]#docker hisotry		//查看镜像制作历史
+]#docker inspect		//查看镜像底层信息
+]#docker pull			//下载镜像
+]#dcoker push			//上传镜像
+]#docker rmi			//删除本地镜像 (未启动过的,可删除)
+]#docker save			//镜像另存为tar包
+]#docker load			//使用tar包导入镜像
+]#docker search			//搜索镜像
+]#docker tag			//修改镜像名称和标签
+
+]# docker tag docker.io/redis cen:v1          (改名字或者标签)
+
+容器常用命令
+]#docker ps			//查看容器列表 -a 代表所有 -q 简略显示
+]#docker run			//运行容器 run=create + start + connect
+]#docker stop			//关闭容器
+]#docker start			//启动容器
+]#docker restart		//重启容器
+]#docker attach|exec		//进入容器 attach退出会导致容器关闭,链接上帝进程 exec -i 不会,创建新进程
+]#docker inspect		//查看容器底层信息
+]#docker top			//查看容器进程列表
+]#docker rm			//删除容器
+echo $$ 			//显示当前进程pid
+
+]#docker rm $(docker ps -aq)	//删除所有容器进程
+bash-completion  (docker里的tab补全命令安装包)
+链接上帝进程后,为了保证不杀死上帝进程,按ctrl+p+q退出
+______________________________________________________________________________ 
+[root@docker1 ~]# docker inspect  docker.io/centos:latest
+[
+    {
+            "StdinOnce": false,
+  (环境变量)          "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+ (启动命令)           "Cmd": [
+                "/bin/sh",
+                "-c",
+                "#(nop) ",
+                "CMD [\"/bin/bash\"]"
+_______________________________________________________________________________
