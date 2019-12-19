@@ -1,0 +1,166 @@
+docker commit
+]#docker rm -f $(docker ps -a )
+um -y install net-tools iproute psmisc vim-enhanced
+______________________________________________________________________________\
+root@docker1 docker_images]# docker run -it docker.io/centos
+[root@8d07ecd7e345 /]# rm -rf /etc/yum.repos.d/*  
+[root@8d07ecd7e345 /]# vi /etc/yum.repos.d/dvd.repo
+[dvd]
+name=dvd
+baseurl=ftp://192.168.1.254/system
+enabled=1
+gpgcheck=0
+[root@8d07ecd7e345 /]# yum clean all
+[root@8d07ecd7e345 /]# yum repolist
+[root@8d07ecd7e345 /]# yum -y install net-tools iproute psmisc vim-enhanced
+root@8d07ecd7e345 /]# ifconfig
+root@docker1 docker_images]# docker start 8d07ecd7e345        
+//可以简写为8d，要保证唯一性
+8d07ecd7e345
+[root@docker1 docker_images]# docker commit 8d07ecd7e345 docker.io/myos:latest 
+sha256:ac3f9c2e8c7e13db183636821783f997890029d687b694f5ce590a473ad82c5f
+docker images 
+REPOSITORY           TAG             IMAGE ID          CREATED              SIZE
+docker.io/myos     latest       87feda116c17         6 weeks ago         321.6 MB
+docker.io/busybox  latest       d8233ab899d4         7 weeks ago         1.199 MB
+root@docker1 docker_images]# docker run -it docker.io/myos:latest
+[root@497c7b4664bf /]# ifconfig 
+eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 172.17.0.6  netmask 255.255.0.0  broadcast 0.0.0.0
+        inet6 fe80::42:acff:fe11:6  prefixlen 64  scopeid 0x20<link>
+===============================================================================
+使用Dockerfile文件创建一个新的镜像文件
+
+Dockerfile语法格式：
+– FROM:基础镜像(后端盘)
+– MAINTAINER:镜像创建者信息(说明)
+– EXPOSE:开放的端口
+– ENV:设置环境变量(进入容器后,仍执行)
+– ADD:复制文件到镜像(容器内文件,需要在Dockerfile同文件可改为COPY)ADD支持自解压
+– RUN:制作镜像时执行的命令,可以有多个(创建时,执行,进入容器不执行)
+– WORKDIR:定义容器默认工作目录 (解决cd无效问题,自动cd到此位置绝对路径可以)
+– CMD:容器启动时执行的命令,仅可以有一条CMD 1.空格用,代替/2.路径需用""引起来并使用[]括起来.(进入容器后,仍执行)
+
+]#mkdir /build
+]#cd /build
+]#vim Dockerfile		
+FROM docker.io/centos:latest
+RUN rm -f /etc/yum.repos.d/*
+ADD local.repo  /etc/yum.repos.d/local.repo
+RUN yum -y install net-tools iproute psmisc vim-enhanced
+]#cp /etc/yum.repos.d/local.repo ./
+]#docker build -t docker.io/myos:latest .
+omplete!
+ ---> 01aef3010892
+Removing intermediate container 0ea807e70465
+Successfully built 01aef3010892
+===============================================================================
+自定义镜像仓库
+30]#rsync -aXSH --delete 192.168.1.31:/etc/yum.repos.d/local.repo  /etc/yum.repos.d/local.repo
+30]#yum -y install docker-distribution
+30]# systemctl start docker-distribution
+30]# systemctl enable docker-distribution
+30]# systemctl status docker-distribution
+30]# ss -nutlp | grep 50
+上传镜像(docker1)
+31]# docker rm  -f $(docker ps -aq)
+31]# vim /etc/sysconfig/docker
+13  ADD_REGISTRY='--add-registry 192.168.1.30:5000'
+24  INSECURE_REGISTRY='--insecure-registry 192.168.1.30:5000'
+31]# rsync -av /etc/sysconfig/docker root@192.168.1.32:/etc/sysconfig/docker
+31]# systemctl restart docker
+
+
+31]# docker tag docker.io/myos:http 192.168.1.30:5000/myos:http
+31]# docker images
+31]# docker push  192.168.1.30:5000/myos:http
+运行镜像(docker2)
+32]# docker run -it myos:http
+-------------------------------------------------------------------------------
+查看仓库
+1.查看镜像名称
+http://192.168.1.30:5000/v2/_catalog
+2.查看镜像标签
+http://192.168.1.30:5000/v2/镜像名称/tags/list
+3.私有仓库数据存储目录
+---/var/lib/registry
+
+===============================================================================
+持久化存储    存储卷******共享存储
+===============================================================================
+卷的概念
+1.dcoker容器不保持任何数据
+2.重要数据请使用外部卷存储(数据持久化)
+3.容器可以挂载真实机目录或共享存储为卷
+
+主机卷的映射
+-将真实机目录挂载到容器中提供持久化存储
+1.目录不存在就自动创建
+2.目录存在就直接覆盖掉
+docker1]#docker run -v /data:/data -it docker.io/centos bash
+
+共享储存
+一台共享存储服务器可以提供给所有Docker主机使用
+共享存储服务器(NAS/SAN/DAS等)
+如:
+1.使用NFS创建共享存储服务器
+2.客户端挂载NFS共享,并最终映射到容器中
+
+===============================================================================
+docker network管理
+
+创建 docker1 自定义虚拟交换机
+docker network create --subnet=10.10.10.0/24 docker1
+查看 docker network list(ls)
+创建容器,使用docker1
+docker run -it --network=docker1 myos:latest
+_______________________________________________________________________________
+使用共享存储的案例
+NFS服务器共享目录
+-yum -y install nfs-utils
+-vim /etc/exports
+-systemctl start nfs
+Docker主机
+-mount 挂载共享
+-运行容器时,使用-v选项映射磁盘到容器中
+_______________________________________________________________________________
+案例:NFS共享存储
+1.服务器创建NFS共享存储目录,权限为rw
+2.客服端挂载共享,并将共享目录映射到容器中
+3.docker1启动ngxin
+4.docker2启动apache
+5.nginx和apache共享同一web目录
+
+distri]# eip 30
+distri]# rsync -aXSH --delete 192.168.1.31:/etc/yum.repos.d/local.repo  /etc/yum.repos.d/local.repo
+distri]# yum -y install docker-distribution
+distri]# systemctl start docker-distribution
+distri]# systemctl enable docker-distribution
+distri]# systemctl status docker-distribution
+distri]# yum -y install nfs-utils
+distri]# vim /etc/exports
+distri]# /content *(ro)
+distri]# mkdir /content
+distri]# cd /content/
+distri]# echo 123456 > index.html
+distri]# systemctl restart nfs-server
+distri]# exportfs -rv
+
+docker1
+]# yum -y install nfs-utils
+]# systemctl restart nfs-utils.service
+]# mkdir /nginx
+]# cd /nginx
+]# mount -t nfs 192.168.1.30:/content /root/nginx
+]# df -h
+]# docker run -d -v /root/nginx:/usr/share/nginx/html -it docker.io/nginx:latest
+]# curl 172.17.0.2
+]# docker run -d -p 80:80 -v /root/nginx/:/usr/share/nginx/html -it 231d40e811cd
+]# curl 192.168.1.31
+
+
+docker2
+]# docker rm -f  $(docker ps -aq )
+]# yum -y install net-tools iproute psmisc vim-enhanced 
+]# rpm -ql httpd | grep httpd.service
+]# 
