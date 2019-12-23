@@ -1,0 +1,196 @@
+什么是ansible
+ansible是2013年推出的一款IT自动化和DevOps软件,2015年被Redhat收购,是基于Python研发,糅合很多老运维工具的优点,实现了批量操作系统配置,批量程序部署,批量运行命令等功能
+
+ansible可以实现:
+1.自动化部署APP
+2.自动化部署配置项
+3.自动化持续交付
+4.自动化(AWS)云服务管理
+
+为什么选择ansible
+选择一款配置管理软件,无外乎从几点权衡利弊
+1.活跃度(社区)
+2.学习成本
+3.使用成本
+4.编码语言
+5.性能
+6.使用是否广泛
+
+ansible优点
+1.只需要SSH和Python即可使用
+2.无客户端
+3.ansible功能强大,模块丰富
+4.容易上手,门槛低
+5.基于Python开发,做二次开发更容易
+6.使用公司比较多,社区活跃.
+
+ansible 特性 1
+1.模块化设计,调用特定的模块完成特定任务
+2.基于Python语言实现
+-paramiko
+-PyYAML(半结构化语言)
+-Jinja2
+其模块支持JSON等标准输出格式,可以采用任何编程语言重写
+
+ansible 特性 2
+1 部署简单
+2 主从模式工作
+3 支持自定义模块
+4 支持playbook
+5 易于使用
+6 支持多层部署
+7 支持异构IT环境
+
+工作流程
+ansible大体执行过程
+读取配置→抓取全量机器&分组列表→ 使用host-pattern过滤机器列表→ 根据参数确定执行模块和配置→ Runner执行返回→ 输出,结束
+
+======================================================================================
+ansible 安装
+软件依赖关系
+对管理主机 ---要求Python 2.6 或Python 2.7
+ansible 使用以下模块,都需要安装
+1.paramiko 2.PyYAML 3.Jinja2 4.httplib2 5.six
+
+______________________________________________________________________________________
+对于被托管主机 ---ansible默认通过SSH协议管理机器
+
+1. ansible 默认通过SSH 协议管理机器
+2. 被管理主机要开启ssh 服务 ,允许ansible 主机登录
+3.在托管节点上也需要安装Python2.5或以上的版本
+4.如果托管节点上开启了SElinux,需要安装libselinux-python
+______________________________________________________________________________________
+真机 管理
+Yum 安装
+1.把软件包拷贝到真机FTP共享目录中
+2.更新索引文件
+ createrepo /var/ftp/文件名
+ createrepo --update .
+安装及验证
+1.在ansible 托管主机上配置yum 配置文件
+2.安装yum install ansible
+3.验证 ansible --version
+_______________________________________________________________________________________
+启动6台虚拟机  2CPU 1.5G 以上内存 ,10G 以上硬盘,1块网卡
+
+主机名		IP地址		角色
+ansible		192.168.1.40	管理主机
+web1		192.168.1.41	托管主机
+web2		192.168.1.42	托管主机
+db1		192.168.1.43	托管主机
+db2		192.168.1.44	托管主机
+cache		192.168.1.45	托管主机
+_______________________________________________________________________________________主机定义与分组
+安装ansible 之后可以做一些简单的任务
+ansible配置文件查找顺序
+首先检测ANSIBLE_CONFIG变量定义的配置文件
+其次检查当前目录下的./ansible.cfg 文件
+再次检查当前用户家目录下 ~/;ansible.cfg 文件
+最后检查/etc/ansible/ansible.cfg文件
+/etc/ansible/ansible,cfg是ansible的默认配置文件路径
+=============================================================================
+配置ansible
+]# eip 40
+]# echo ansible > /etc/hostname
+]# hostname ansible
+]# reboot
+]# vim /etc/yum.repos.d/local.repo
+[local_repo]
+name=CentOS-$releasever - Base
+baseurl="ftp://192.168.1.254/centos-1804"
+enabled=1
+gpgcheck=0
+
+
+[ansible]
+name=ansible
+baseurl="ftp://192.168.1.254/ansible"
+enabled=1
+gpgcheck=0
+~                                   
+]# yum repolist
+]# yum -y install ansible
+]# ssh-keygen -t rsa  -b 2048 -N '' -f key
+]# for i in web1 web2 db1 db2 cache ; do ssh-copy-id -i key.pub ${i};done
+]# vim /etc/hosts
+]# 192.168.1.40 ansible
+192.168.1.41 web1
+192.168.1.42 web2
+192.168.1.43 db1
+192.168.1.44 db2
+192.168.1.45 cache
+]# for i in web1 web2 db1 db2 cache ; do rsync -av /etc/hosts root@${i}:/etc/hosts ;done
+]# vim /etc/ansible/hosts
+[web]
+web1
+web2
+
+[db]
+db1
+db2
+
+[other]
+cache
+
+[app:children]
+web
+db
+[all:vars]
+ansible_ssh_private_key_file="/root/key"
+]# ansible all  --list-hosts
+]# ansible all -m ping
+]# mkdir myansible && cd myansible/
+]# vim myhost
+[app1]
+web1
+db1
+
+[app2]
+web2
+db2
+
+[app:children]
+app1
+app2
+
+[other]
+cache
+
+[all:vars]
+ansible_ssh_private_key_file="/root/key"
+]#vim ansible.cfg 
+[defaults]
+inventory=myhost
+host_key_checking=false
+]# ansible app1 -m ping
+]# cd
+]# ansible web -m shell -a 'echo ${HOSTNAME}'
+]# ansible cache -m shell -a 'touch testfile'
+]# ansible web1,db2 -a "useradd nb"
+]# ansible web1,db2 -a 'echo 123 |passwd --stdin nb'
+]# ansible web1,db2 -a 'id nb'
+]# vim 1.sh
+#!/bin/bash
+id nb
+if [ $?  != 0 ];then
+useradd wk
+echo 456 |passwd --stdin wk
+fi
+]# ansible all -m script -a "/root/1.sh"
+]# vim /etc/resolv.conf
+]# ansible all -m copy -a 'src=/etc/resolv.conf dest=/etc/resolv.conf'
+]# ansible all -a 'cat /etc/resolv.conf'
+]# ansible db -m yum -a 'state=installed name=mariadb-server'
+]# ansible db -m service -a 'state=started name=mariadb enabled=yes'
+]# ansible-doc script
+]# ansible db -m script -a '/root/1.sh'
+================================================================================1.ansible all -m ping
+2.ansible all -m command -a ''
+3.ansible all -m shell -a ''
+4.ansible all -m lineinfile -a ''
+5.ansible all -m replace -a ''
+6.ansible all -m copy -a 'scr: dest:'
+7.ansible all -m yum -a 'state= name'
+8.ansible all -m script -a  '/root/1.sh'
+9.ansible all -m setup -a  ''
+10ansible all -m service -a ''
